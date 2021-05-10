@@ -1439,7 +1439,6 @@ signTransaction
         , HasDBLayer IO s k ctx
         , HasNetworkLayer IO ctx
         , IsOwned s k
-        , GenChange s
         )
     => ctx
     -> WalletId
@@ -1456,7 +1455,6 @@ signTransaction ctx wid mkRwdAcct pwd txBody = db & \DBLayer{..} -> do
         mapExceptT atomically $ do
             cp <- withExceptT ErrSignPaymentNoSuchWallet $ withNoSuchWallet wid $
                 readCheckpoint wid
-            pp <- liftIO $ currentProtocolParameters nl
 
             -- TODO: ADP-919 implement this
             let _keyFrom = isOwned (getState cp) (xprv, pwdP)
