@@ -229,7 +229,14 @@ import Cardano.Wallet.Primitive.Types.TokenMap.Gen
 import Cardano.Wallet.Primitive.Types.TokenPolicy
     ( TokenFingerprint, mkTokenFingerprint )
 import Cardano.Wallet.Primitive.Types.Tx
-    ( Direction (..), TxIn (..), TxMetadata (..), TxOut (..), TxStatus (..) )
+    ( Direction (..)
+    , SerialisedTx (..)
+    , SerialisedTxParts (..)
+    , TxIn (..)
+    , TxMetadata (..)
+    , TxOut (..)
+    , TxStatus (..)
+    )
 import Cardano.Wallet.Primitive.Types.UTxO
     ( HistogramBar (..)
     , UTxO (..)
@@ -251,6 +258,8 @@ import Data.Aeson
     ( FromJSON (..), Result (..), fromJSON, withObject, (.:?), (.=) )
 import Data.Aeson.QQ
     ( aesonQQ )
+import Data.ByteString
+    ( ByteString )
 import Data.Char
     ( toLower )
 import Data.Data
@@ -941,7 +950,7 @@ spec = parallel $ do
         it "PostSignTransactionData" $ property $ \x ->
             let
                 x' = PostSignTransactionData
-                    { txBody = txBody (x :: PostSignTransactionData)
+                    { transaction = transaction (x :: PostSignTransactionData)
                     , passphrase = passphrase (x :: PostSignTransactionData)
                     }
             in
@@ -969,9 +978,9 @@ spec = parallel $ do
                 x' === x .&&. show x' === show x
         it "ApiSerialisedTransaction" $ property $ \x ->
             let
-                x' = ApiSerialisedTransaction
-                    { payload = payload (x :: ApiSerialisedTransaction)
-                    }
+                x' = case x of
+                    ApiSerialisedTransaction t -> ApiSerialisedTransaction t
+                    ApiSerialisedTransactionParts b w -> ApiSerialisedTransactionParts b w
             in
                 x' === x .&&. show x' === show x
         it "ApiTransaction" $ property $ \x ->
@@ -1826,13 +1835,15 @@ instance Arbitrary (PostTransactionFeeOldData t) where
         <*> arbitrary
         <*> arbitrary
 
-instance Arbitrary ApiSerialisedTransaction where
-    arbitrary = do
-        count <- choose (0, 32)
-        bytes <- BS.pack <$> replicateM count arbitrary
-        return $ ApiSerialisedTransaction bytes
-    shrink (ApiSerialisedTransaction bytes) =
-        ApiSerialisedTransaction . BS.pack <$> shrink (BS.unpack bytes)
+genSmallBlob :: Gen ByteString
+genSmallBlob = BS.pack <$> Test.QuickCheck.scale (min 32) (listOf arbitrary)
+
+shrinkBlob :: ByteString -> [ByteString]
+shrinkBlob bytes = BS.pack <$> shrink (BS.unpack bytes)
+
+instance Arbitrary (ApiT SerialisedTx) where
+    arbitrary = ApiT . SerialisedTx <$> genSmallBlob
+    shrink (ApiT (SerialisedTx bs)) = ApiT . SerialisedTx <$> shrinkBlob bs
 
 instance Arbitrary TxMetadata where
     arbitrary = genTxMetadata
