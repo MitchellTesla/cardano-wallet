@@ -67,7 +67,6 @@ import Data.Word
     ( Word64 )
 import Numeric.Natural
     ( Natural )
-import System.Environment
 import Test.Hspec
     ( SpecWith, describe, pendingWith )
 import Test.Hspec.Expectations.Lifted
