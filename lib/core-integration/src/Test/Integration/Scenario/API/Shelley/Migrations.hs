@@ -67,6 +67,7 @@ import Data.Word
     ( Word64 )
 import Numeric.Natural
     ( Natural )
+import System.Environment
 import Test.Hspec
     ( SpecWith, describe, pendingWith )
 import Test.Hspec.Expectations.Lifted
@@ -196,18 +197,21 @@ spec = describe "SHELLEY_MIGRATIONS" $ do
                         (errMsg404NoWallet $ sourceWallet ^. walletId)
                     ]
 
+
     it "SHELLEY_CREATE_MIGRATION_PLAN_04 - \
         \Cannot create a plan for a wallet that only contains dust."
         $ \ctx -> runResourceT $ do
-            liftIO $ pendingWith
-                "Disabled until a real dust wallet is available."
-            let payloadRestore = Json [json| {
-                    "name": "Dust Shelley Wallet",
-                    "mnemonic_sentence": #{mnemonicToText onlyDustWallet},
-                    "passphrase": #{fixturePassphrase},
-                    "style": "random"
-                    } |]
-            sourceWallet <- unsafeResponse <$> postWallet ctx payloadRestore
+            sourceWallet <- emptyWallet ctx
+            srcAddrs <- map (getApiT . fst . view #id)
+                <$> listAddresses @n ctx sourceWallet
+
+            -- Big enough to mint and sent to sourceWallet, but small enough
+            -- that the migration to targetWallet then fails.
+            let edgeCase = Coin 3_300_000
+
+            liftIO $ _mintSeaHorseAssets ctx 10 edgeCase srcAddrs
+            waitForTxImmutability ctx
+
             targetWallet <- emptyWallet ctx
             targetAddresses <- listAddresses @n ctx targetWallet
             let targetAddressIds = targetAddresses <&>
