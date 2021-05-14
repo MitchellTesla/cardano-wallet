@@ -242,4 +242,4 @@ instance ToJSON AssetURL where
     toJSON = toJSON . show . unAssetURL
 
 instance ToJSON AssetDecimals where
-  toJSON = toJSON . show . unAssetDecimals
+  toJSON = toJSON . unAssetDecimals

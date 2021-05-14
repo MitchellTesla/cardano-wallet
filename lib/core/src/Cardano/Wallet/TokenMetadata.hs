@@ -113,7 +113,6 @@ import Data.Aeson
     , eitherDecodeStrict'
     , encode
     , withObject
-    , withScientific
     , withText
     , (.!=)
     , (.:)
@@ -139,8 +138,6 @@ import Data.Maybe
     ( catMaybes, mapMaybe )
 import Data.Proxy
     ( Proxy (..) )
-import Data.Scientific
-    ( toBoundedInteger )
 import Data.String
     ( IsString (..) )
 import Data.Text
@@ -149,8 +146,6 @@ import Data.Text.Class
     ( ToText (..) )
 import Data.Time.Clock
     ( DiffTime )
-import Data.Word
-    ( Word64 )
 import GHC.Generics
     ( Generic )
 import GHC.TypeLits
@@ -337,7 +332,7 @@ metadataClient tr (TokenMetadataServer baseURI) manager batch = do
 
     -- decode and parse json
     parseResponse bs =
-        first (TokenMetadataJSONParseError bs) (eitherDecodeStrict' bs)
+        first (TokenMetadataJSONParseError bs) (eitherDecodeStrict' (Debug.trace (B8.unpack bs) bs))
 
     -- Convert http-client exceptions to Left, handle any other synchronous
     -- exceptions that may occur.
@@ -482,7 +477,7 @@ getTokenMetadata (TokenMetadataClient client) as =
         { subjects
         , properties = PropertyName <$>
              [ "name", "description", "ticker"
-             , "url", "logo", "unit" ]
+             , "url", "logo", "decimals" ]
         }
     subjectAsset = HM.fromList $ zip subjects as
     fromResponse :: BatchResponse -> [(AssetId, AssetMetadata)]
@@ -588,10 +583,7 @@ instance FromJSON AssetLogo where
     parseJSON = fmap (AssetLogo . raw @'Base64) . parseJSON
 
 instance FromJSON AssetDecimals where
-    parseJSON = withScientific "AssetDecimals" $ \sci ->
-      case toBoundedInteger sci of
-        Nothing            -> fail "AssetDecimals must be an integer"
-        Just (n :: Word64) -> applyValidator validateMetadataDecimals (AssetDecimals $ fromIntegral n)
+    parseJSON = fmap AssetDecimals . parseJSON 
 
 --
 -- Helpers
